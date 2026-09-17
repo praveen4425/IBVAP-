@@ -1,0 +1,6 @@
+{
+  "name": "IBVAP — Border Video Analytics",
+  "description": "Intelligent Border Video Analytics Platform (IBVAP) for Sashastra Seema Bal (SSB) featuring CCTV monitoring, YOLO detection, ANPR, face analytics, and forensic evidence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

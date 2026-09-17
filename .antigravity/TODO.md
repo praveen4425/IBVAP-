@@ -1,0 +1,26 @@
+# IBVAP TODO
+
+- [x] Inspect complete project
+- [x] Create a backup/git checkpoint
+- [ ] Inspect current backend
+- [ ] Inspect current frontend API/data requirements
+- [ ] Inspect candidate repositories and licenses
+- [ ] Choose ONE detector path
+- [ ] Integrate ONE tracker path
+- [ ] Complete camera -> detector -> tracker pipeline
+- [ ] Complete zone + temporal analytics
+- [ ] Complete anomaly layer
+- [ ] Complete ANPR
+- [ ] Complete face detection
+- [ ] Complete event engine
+- [ ] Complete multi-camera incident correlation
+- [ ] Complete evidence
+- [ ] Add persistence/database
+- [ ] Expose FastAPI APIs
+- [ ] Connect existing frontend
+- [ ] Create demo mode
+- [ ] Run complete tests
+- [ ] Clean unused/duplicate code
+- [ ] Perform license audit
+- [ ] Update README
+- [ ] Run final end-to-end demo

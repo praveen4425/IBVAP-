@@ -1,0 +1,232 @@
+import React, { useState } from 'react';
+import { NavigationPage, IncidentRecord, CameraData } from './types';
+import { CAMERAS, INCIDENTS, ANPR_SCANS, FACE_SUBJECTS, EVIDENCE_RECORDS } from './data/mockData';
+import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { DispatchModal } from './components/DispatchModal';
+import { DashboardView } from './views/DashboardView';
+import { LiveCamerasView } from './views/LiveCamerasView';
+import { CameraDetailView } from './views/CameraDetailView';
+import { IncidentsView } from './views/IncidentsView';
+import { AnprView } from './views/AnprView';
+import { FaceAnalyticsView } from './views/FaceAnalyticsView';
+import { EvidenceView } from './views/EvidenceView';
+import { AdminConsoleView } from './views/AdminConsoleView';
+
+export default function App() {
+  const [currentPage, setCurrentPage] = useState<NavigationPage>('dashboard');
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('CAM-01');
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string>('INC-2026-084');
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string>('EV-2026-084-A');
+
+  // Operational State
+  const [cameras, setCameras] = useState<CameraData[]>(CAMERAS);
+  const [incidents, setIncidents] = useState<IncidentRecord[]>(INCIDENTS);
+  const [anprScans] = useState(ANPR_SCANS);
+  const [faceSubjects] = useState(FACE_SUBJECTS);
+  const [evidence] = useState(EVIDENCE_RECORDS);
+
+  // Dispatch Modal State
+  const [isDispatchOpen, setIsDispatchOpen] = useState(false);
+  const [activeDispatchIncident, setActiveDispatchIncident] = useState<IncidentRecord | null>(null);
+  const [toastNotification, setToastNotification] = useState<string | null>(null);
+
+  // Sync hash routing on initial load
+  React.useEffect(() => {
+    const hash = window.location.hash.replace('#', '') as NavigationPage;
+    if (hash && ['dashboard', 'live-cameras', 'incidents', 'anpr', 'face-analytics', 'evidence', 'admin-console'].includes(hash)) {
+      setCurrentPage(hash);
+    }
+  }, []);
+
+  // Flow: Select a Camera -> Navigates to full Camera Detail page
+  const handleSelectCamera = (cameraId: string) => {
+    setSelectedCameraId(cameraId);
+    setCurrentPage('camera-detail');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Flow: Back button from Camera Detail
+  const handleBackFromCameraDetail = () => {
+    setCurrentPage('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Flow: Navigate to incidents with specific incident pre-selected
+  const handleNavigateIncidents = (incidentId?: string) => {
+    if (incidentId) setSelectedIncidentId(incidentId);
+    setCurrentPage('incidents');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Flow: Navigate to evidence with specific evidence pre-selected
+  const handleNavigateEvidence = (evidenceId: string) => {
+    setSelectedEvidenceId(evidenceId);
+    setCurrentPage('evidence');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Open QRT dispatch modal
+  const handleOpenDispatch = (incident: IncidentRecord) => {
+    setActiveDispatchIncident(incident);
+    setIsDispatchOpen(true);
+  };
+
+  // Confirm QRT dispatch
+  const handleConfirmDispatch = (unit: string, remark: string) => {
+    if (!activeDispatchIncident) return;
+    setIncidents((prev) =>
+      prev.map((inc) =>
+        inc.id === activeDispatchIncident.id
+          ? { ...inc, qrtUnit: unit, operatorNotes: remark, status: 'Acknowledged' }
+          : inc
+      )
+    );
+    setToastNotification(`QRT Dispatch Transmitted: ${unit} deployed to ${activeDispatchIncident.cameraName}`);
+    setTimeout(() => setToastNotification(null), 5000);
+  };
+
+  // Update incident status
+  const handleUpdateIncidentStatus = (incidentId: string, newStatus: IncidentRecord['status']) => {
+    setIncidents((prev) =>
+      prev.map((inc) => (inc.id === incidentId ? { ...inc, status: newStatus } : inc))
+    );
+    setToastNotification(`Incident ${incidentId} status updated to: ${newStatus}`);
+    setTimeout(() => setToastNotification(null), 3000);
+  };
+
+  // Camera currently selected for detail
+  const currentCamera = cameras.find((c) => c.id === selectedCameraId) || cameras[0];
+
+  const activeAlertCount = incidents.filter((i) => i.severity === 'critical' && i.status === 'Open / Active').length;
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-[#f1f5f9] text-[#0f172a]">
+      {/* Tactical Top Header */}
+      <Header
+        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        onNavigateNotifications={() => handleNavigateIncidents()}
+      />
+
+      {/* Global Notification Toast */}
+      {toastNotification && (
+        <div className="fixed top-20 right-6 z-50 bg-[#0052ff] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-[13px] font-semibold animate-in fade-in slide-in-from-top-3 border border-white/20">
+          <span className="material-symbols-outlined text-[20px]">notifications_active</span>
+          <span>{toastNotification}</span>
+        </div>
+      )}
+
+      {/* Left Navigation Console */}
+      <Sidebar
+        currentPage={currentPage}
+        onNavigate={(page) => {
+          setCurrentPage(page);
+          setIsMobileMenuOpen(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        activeAlertCount={activeAlertCount}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
+
+      {/* Main Content Viewport */}
+      <main className="ml-0 md:ml-64 mt-16 p-4 sm:p-6 min-h-[calc(100vh-64px)]">
+        {currentPage === 'dashboard' && (
+          <DashboardView
+            cameras={cameras}
+            incidents={incidents}
+            onSelectCamera={handleSelectCamera}
+            onNavigateIncidents={handleNavigateIncidents}
+            onOpenDispatch={handleOpenDispatch}
+            onNavigatePage={(page) => {
+              setCurrentPage(page);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
+
+        {currentPage === 'live-cameras' && (
+          <LiveCamerasView
+            cameras={cameras}
+            selectedCameraId={selectedCameraId}
+            onSelectCamera={setSelectedCameraId}
+            onOpenDetail={handleSelectCamera}
+          />
+        )}
+
+        {currentPage === 'camera-detail' && (
+          <CameraDetailView
+            camera={currentCamera}
+            allCameras={cameras}
+            incidents={incidents}
+            evidence={evidence}
+            anprScans={anprScans}
+            faceSubjects={faceSubjects}
+            onBack={handleBackFromCameraDetail}
+            onSelectCamera={(id) => setSelectedCameraId(id)}
+            onNavigateIncidents={handleNavigateIncidents}
+            onNavigateEvidence={handleNavigateEvidence}
+            onOpenDispatch={handleOpenDispatch}
+          />
+        )}
+
+        {currentPage === 'incidents' && (
+          <IncidentsView
+            incidents={incidents}
+            selectedIncidentId={selectedIncidentId}
+            onSelectCamera={handleSelectCamera}
+            onOpenDispatch={handleOpenDispatch}
+            onUpdateStatus={handleUpdateIncidentStatus}
+          />
+        )}
+
+        {currentPage === 'anpr' && (
+          <AnprView
+            scans={anprScans}
+            cameras={cameras}
+            onSelectCamera={handleSelectCamera}
+            onOpenDetail={handleSelectCamera}
+          />
+        )}
+
+        {currentPage === 'face-analytics' && (
+          <FaceAnalyticsView
+            subjects={faceSubjects}
+            camera={cameras[0]}
+            onOpenDetail={handleSelectCamera}
+          />
+        )}
+
+        {currentPage === 'evidence' && (
+          <EvidenceView
+            evidence={evidence}
+            selectedEvidenceId={selectedEvidenceId}
+            onSelectCamera={handleSelectCamera}
+            onNavigateIncident={handleNavigateIncidents}
+          />
+        )}
+
+        {currentPage === 'admin-console' && (
+          <AdminConsoleView
+            cameras={cameras}
+            onSelectCamera={handleSelectCamera}
+          />
+        )}
+      </main>
+
+      {/* QRT Tactical Intercept Dispatch Modal */}
+      {activeDispatchIncident && (
+        <DispatchModal
+          isOpen={isDispatchOpen}
+          incidentId={activeDispatchIncident.id}
+          cameraName={activeDispatchIncident.cameraName}
+          defaultUnit={activeDispatchIncident.qrtUnit}
+          eta={activeDispatchIncident.eta}
+          onClose={() => setIsDispatchOpen(false)}
+          onConfirmDispatch={handleConfirmDispatch}
+        />
+      )}
+    </div>
+  );
+}
