@@ -1,5 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CameraData } from '../types';
+
+const BACKEND_URL = 'http://127.0.0.1:8000';
+
+interface VideoJob {
+  job_id: string;
+  filename: string;
+  state: 'queued' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  processed_frames: number;
+  total_frames: number;
+  detection_counts: Record<string, number>;
+  output_url: string | null;
+  error: string | null;
+}
 
 interface LiveCamerasViewProps {
   cameras: CameraData[];
@@ -21,6 +35,65 @@ export const LiveCamerasView: React.FC<LiveCamerasViewProps> = ({
   const [showTrackIds, setShowTrackIds] = useState(true);
   const [showTripwires, setShowTripwires] = useState(true);
   const [showConfidence, setShowConfidence] = useState(true);
+  const [videoJob, setVideoJob] = useState<VideoJob | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const stageLabel = uploading
+    ? 'Uploading video...'
+    : videoJob?.state === 'completed'
+      ? 'Detection Complete'
+      : videoJob && (videoJob.state === 'queued' || videoJob.state === 'processing')
+        ? 'AI Processing'
+        : 'Ready';
+
+  useEffect(() => {
+    if (!videoJob || (videoJob.state !== 'queued' && videoJob.state !== 'processing')) return;
+
+    const poll = window.setInterval(async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/video/jobs/${videoJob.job_id}`);
+        if (response.ok) setVideoJob(await response.json());
+      } catch {
+        // Keep the current job state visible while the backend is temporarily unavailable.
+      }
+    }, 1000);
+
+    return () => window.clearInterval(poll);
+  }, [videoJob]);
+
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploading(true);
+    setVideoJob(null);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/video/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'Video upload failed');
+      setVideoJob(result);
+    } catch (error) {
+      setVideoJob({
+        job_id: '',
+        filename: file.name,
+        state: 'failed',
+        progress: 0,
+        processed_frames: 0,
+        total_frames: 0,
+        detection_counts: {},
+        output_url: null,
+        error: error instanceof Error ? error.message : 'Video upload failed',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-10">
@@ -264,7 +337,88 @@ export const LiveCamerasView: React.FC<LiveCamerasViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Diagnostics and Directory Split */}
+      {/* 3. Uploaded Video Processing */}
+      <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[16px] font-bold text-[#0f172a] flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-[#0052ff]">video_library</span>
+              Upload Video Analysis
+            </h2>
+            <p className="text-[12px] text-[#64748b] mt-0.5">Run the existing YOLO detector on a local recording</p>
+          </div>
+          <label className={`px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${uploading ? 'bg-slate-200 text-slate-500' : 'bg-[#0052ff] hover:bg-blue-700 text-white'}`}>
+            <span className="material-symbols-outlined text-[17px]">upload_file</span>
+            <span>{uploading ? 'Uploading video...' : 'Upload Video'}</span>
+            <input
+              type="file"
+              accept=".mp4,.avi,.mov,.mkv,video/mp4,video/x-msvideo,video/quicktime,video/x-matroska"
+              onChange={handleVideoUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        {videoJob && (
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[12px]">
+              <span className="font-semibold text-slate-800 truncate">{videoJob.filename}</span>
+              <span className={`font-mono font-bold uppercase ${videoJob.state === 'failed' ? 'text-red-600' : videoJob.state === 'completed' ? 'text-emerald-600' : 'text-[#0052ff]'}`}>
+                {uploading ? 'Uploading video...' : videoJob.state === 'completed' ? 'Detection Complete' : videoJob.state === 'failed' ? 'Failed' : 'AI Processing'}
+              </span>
+            </div>
+
+            {uploading && (
+              <div className="space-y-2">
+                <div className="text-[12px] font-medium text-slate-700">Uploading video...</div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full w-full animate-pulse bg-[#0052ff]" />
+                </div>
+              </div>
+            )}
+
+            {(videoJob.state === 'queued' || videoJob.state === 'processing') && !uploading && (
+              <div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#0052ff] transition-all" style={{ width: `${videoJob.progress}%` }} />
+                </div>
+                <div className="flex justify-between mt-1.5 text-[11px] text-slate-500 font-mono">
+                  <span>{videoJob.processed_frames} / {videoJob.total_frames || '?'} frames</span>
+                  <span>{videoJob.progress.toFixed(1)}%</span>
+                </div>
+              </div>
+            )}
+
+            {videoJob.state === 'failed' && <p className="text-[12px] text-red-600">{videoJob.error}</p>}
+
+            {videoJob.state === 'completed' && videoJob.output_url && (
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)] gap-4">
+                <video controls className="w-full aspect-video bg-slate-950 rounded-xl" src={`${BACKEND_URL}${videoJob.output_url}`} />
+                <div className="border border-slate-200 rounded-xl p-4 space-y-2 text-[12px]">
+                  <h3 className="font-bold text-slate-900">Detection Summary</h3>
+                  {Object.entries(videoJob.detection_counts).map(([className, count]) => (
+                    <div key={className} className="flex justify-between gap-3">
+                      <span className="text-slate-500 capitalize">{className.toLowerCase()}</span>
+                      <span className="font-mono font-semibold text-slate-900">{count}</span>
+                    </div>
+                  ))}
+                  <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between font-semibold">
+                    <span>Total detections</span>
+                    <span>{Object.values(videoJob.detection_counts).reduce((sum: number, count: unknown) => sum + Number(count), 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Frames processed</span>
+                    <span className="font-mono">{videoJob.processed_frames}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* 4. Diagnostics and Directory Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left 1-col: CCTV Ingest & Model Pipeline Diagnostics */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
