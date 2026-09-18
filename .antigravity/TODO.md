@@ -2,25 +2,25 @@
 
 - [x] Inspect complete project
 - [x] Create a backup/git checkpoint
-- [ ] Inspect current backend
-- [ ] Inspect current frontend API/data requirements
+- [x] Inspect current backend
+- [x] Inspect current frontend API/data requirements
 - [ ] Inspect candidate repositories and licenses
-- [ ] Choose ONE detector path
-- [ ] Integrate ONE tracker path
-- [ ] Complete camera -> detector -> tracker pipeline
-- [ ] Complete zone + temporal analytics
-- [ ] Complete anomaly layer
-- [ ] Complete ANPR
-- [ ] Complete face detection
-- [ ] Complete event engine
-- [ ] Complete multi-camera incident correlation
-- [ ] Complete evidence
-- [ ] Add persistence/database
-- [ ] Expose FastAPI APIs
-- [ ] Connect existing frontend
-- [ ] Create demo mode
-- [ ] Run complete tests
-- [ ] Clean unused/duplicate code
-- [ ] Perform license audit
-- [ ] Update README
-- [ ] Run final end-to-end demo
+- [x] Choose ONE detector path
+- [x] Integrate ONE tracker path
+- [x] Complete camera -> detector -> tracker pipeline
+- [x] Complete zone + temporal analytics
+- [x] Complete anomaly layer
+- [x] Complete ANPR
+- [x] Complete face detection
+- [x] Complete event engine
+- [x] Complete multi-camera incident correlation
+- [x] Complete evidence
+- [x] Add persistence/database
+- [x] Expose FastAPI APIs
+- [x] Connect existing frontend
+- [x] Create demo mode
+- [x] Run complete tests
+- [x] Clean unused/duplicate code
+- [x] Perform license audit
+- [x] Update README
+- [x] Run final end-to-end demo

@@ -22,9 +22,51 @@ export default function App() {
   // Operational State
   const [cameras, setCameras] = useState<CameraData[]>(CAMERAS);
   const [incidents, setIncidents] = useState<IncidentRecord[]>(INCIDENTS);
-  const [anprScans] = useState(ANPR_SCANS);
-  const [faceSubjects] = useState(FACE_SUBJECTS);
-  const [evidence] = useState(EVIDENCE_RECORDS);
+  const [anprScans, setAnprScans] = useState(ANPR_SCANS);
+  const [faceSubjects, setFaceSubjects] = useState(FACE_SUBJECTS);
+  const [evidence, setEvidence] = useState(EVIDENCE_RECORDS);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const incRes = await fetch("http://127.0.0.1:8000/api/incidents");
+        if (incRes.ok) {
+          const incData = await incRes.json();
+          if (incData.length > 0) {
+            // Map backend incidents to frontend IncidentRecord format
+            const mappedIncidents = incData.map((inc: any) => ({
+              id: inc.incident_id,
+              timestamp: inc.timestamp_start,
+              cameraId: inc.camera_ids[0] || 'CAM-01',
+              cameraName: `CAM: ${inc.camera_ids[0] || 'Unknown'}`,
+              sector: 'Sector IV',
+              zone: 'Auto-Detected Zone',
+              classification: 'AI Correlated Incident',
+              description: inc.explanation || 'No description available',
+              targetClass: 'MIXED',
+              confidence: inc.correlation_score || 0.8,
+              severity: inc.severity === 4 ? 'critical' : inc.severity === 3 ? 'high' : inc.severity === 2 ? 'medium' : 'low',
+              status: inc.lifecycle_status === 1 ? 'Open / Active' : inc.lifecycle_status === 2 ? 'Acknowledged' : 'Resolved',
+              triggerFrameUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZ75ko-hSH40qHJheNfXeIhheinGuuDBv-Ysrt7MKNVCdaIYDDwAgOxWBqtm8_ug8U3M-77EAnKijDgXwV8UOYbcPW7jVBCyvOEeonF2WpKFenUafCgivsOs9GtyOVdzzUYUkelETr6b5Eqx4xiu6Ok48ODfmKGDoZqKXzkQs_A14ETMdB1tZlfKARBQJAMzGePh2LcmpyLk5GPQPQKHpzf8wxXzH8kwE1FFmU6hv1HeogjUSmqCIp',
+              coordinates: 'Live Geo',
+              ingestStream: 'Live Stream',
+              activePipeline: 'IBVAP Pipeline',
+              qrtUnit: 'Standby',
+              eta: 'N/A',
+              operatorNotes: ''
+            }));
+            setIncidents(mappedIncidents);
+          }
+        }
+      } catch (e) {
+        console.error("Backend not reachable", e);
+      }
+    };
+    
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Dispatch Modal State
   const [isDispatchOpen, setIsDispatchOpen] = useState(false);
