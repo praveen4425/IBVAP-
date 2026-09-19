@@ -456,11 +456,11 @@ export const LiveCamerasView: React.FC<LiveCamerasViewProps> = ({
               <span className="font-mono text-emerald-600 font-semibold">0 (0.00%)</span>
             </div>
             <div className="flex justify-between items-center py-0.5">
-              <span className="text-[#64748b]">Hardware Model:</span>
+              <span className="text-[#64748b]">Stream Source:</span>
               <span className="font-semibold text-slate-900">{activeCamera.sensorType}</span>
             </div>
             <div className="flex justify-between items-center py-0.5">
-              <span className="text-[#64748b]">IR Sensor Mode:</span>
+              <span className="text-[#64748b]">Night Stream:</span>
               <span className="text-slate-900 font-medium">{activeCamera.irAssist}</span>
             </div>
             <div className="flex justify-between items-center py-0.5">

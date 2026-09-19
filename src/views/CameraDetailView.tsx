@@ -283,7 +283,7 @@ export const CameraDetailView: React.FC<CameraDetailViewProps> = ({
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748b]">
-            Sensor Hardware &amp; Mast
+            Stream Source
           </div>
           <div className="font-semibold text-[14px] text-[#0f172a] mt-1.5">{camera.sensorType}</div>
           <div className="text-[12px] text-[#64748b] mt-0.5">{camera.deployment}</div>
@@ -291,7 +291,7 @@ export const CameraDetailView: React.FC<CameraDetailViewProps> = ({
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748b]">
-            Coverage &amp; IR Assist
+            Stream Profile
           </div>
           <div className="font-semibold text-[14px] text-[#0f172a] mt-1.5">{camera.coverageFov}</div>
           <div className="text-[12px] text-[#64748b] mt-0.5">{camera.irAssist}</div>

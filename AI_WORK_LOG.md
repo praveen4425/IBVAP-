@@ -123,3 +123,22 @@
 - Existing generated files: `FMP4` in MP4 containers.
 - Newly generated files: `avc1`/AVC MP4 through Media Foundation.
 - Chrome browser playback was not directly verified in this pass; no claim of browser playback success is made until a newly generated AVC output is opened in Chrome.
+
+## 2026-09-19 (Software-only SIH positioning cleanup)
+
+### Task completed
+- Removed hardware-specific camera wording from the frontend presentation.
+- Generalized mock camera metadata to existing IP-camera stream, existing CCTV infrastructure, configured stream views, and night-stream availability.
+- Renamed rendered detail fields to `Stream Source`, `Stream Profile`, `Night Stream`, and preserved virtual tripwire, detection, tracking, stream health, FPS, and latency features.
+- Replaced remaining rendered FLIR evidence labels with software-neutral stream and analytics labels.
+
+### Files modified
+- [src/data/mockData.ts](src/data/mockData.ts)
+- [src/views/LiveCamerasView.tsx](src/views/LiveCamerasView.tsx)
+- [src/views/CameraDetailView.tsx](src/views/CameraDetailView.tsx)
+
+### Validation
+- Searched `src/` for `Axis`, `P1455`, `Hardware Model`, `IR Sensor`, `Auto-IR`, `ONVIF`, `firmware`, `Sensor Hardware`, `Thermal Sensor`, `Hikvision`, `Bosch MIC`, `FLIR`, and `Laser IR`; no matches remain.
+- `npm run lint` passed.
+- `npm run build` passed.
+- No backend, model, detector, analytics, database, or unrelated feature files were modified.
