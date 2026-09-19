@@ -13,8 +13,10 @@ from app.services.detector import Detection, Detector
 from app.services.tracker import Track, Tracker
 from app.analytics.zone_engine import ZoneEngine
 from app.analytics.temporal_engine import TemporalEngine
+from app.analytics.anpr_engine import ANPREngine
 from app.services.event_engine import event_engine
 from app.services.incident_engine import incident_engine
+from app.services.evidence_service import evidence_service
 from app.storage.database import database_service
 
 @dataclass
@@ -40,6 +42,7 @@ class AIPipelineWorker:
         detector: Detector,
         tracker: Tracker,
         process_interval: float = 0.1,
+        enable_anpr: bool = False,
     ):
         self.camera_id = camera_id
         self.camera_manager = camera_manager
@@ -49,6 +52,7 @@ class AIPipelineWorker:
         # Per-camera analytics engines
         self.zone_engine = ZoneEngine()
         self.temporal_engine = TemporalEngine()
+        self.anpr_engine = ANPREngine() if enable_anpr else None
 
         self.status = PipelineStatus(
             camera_id=camera_id,
@@ -114,9 +118,54 @@ class AIPipelineWorker:
                 temporal_events = self.temporal_engine.analyze(self.camera_id, tracks)
                 all_raw_events = zone_events + temporal_events
 
+                if self.anpr_engine is not None:
+                    for track in tracks:
+                        if track.class_name.lower() in {"car", "motorcycle", "bus", "truck"}:
+                            anpr_event = self.anpr_engine.analyze(
+                                self.camera_id,
+                                track.track_id,
+                                frame,
+                                track.bbox,
+                            )
+                            if anpr_event is not None:
+                                all_raw_events.append(anpr_event)
+
                 if all_raw_events:
                     security_events = event_engine.process_events(all_raw_events)
                     if security_events:
+                        for raw_event, security_event in zip(all_raw_events, security_events):
+                            try:
+                                snapshot = evidence_service.save_snapshot(
+                                    frame,
+                                    self.camera_id,
+                                    security_event.event_id,
+                                    security_event.timestamp_start,
+                                )
+                                security_event.evidence_refs.append(snapshot["evidence_id"])
+                                database_service.save_evidence(snapshot)
+
+                                crop = getattr(raw_event, "evidence_crop", None)
+                                if crop is not None:
+                                    crop_metadata = evidence_service.save_crop(
+                                        crop,
+                                        self.camera_id,
+                                        security_event.event_id,
+                                        security_event.timestamp_start,
+                                    )
+                                    security_event.evidence_refs.append(crop_metadata["evidence_id"])
+                                    database_service.save_evidence(crop_metadata)
+
+                                database_service.save_event(
+                                    security_event.event_id,
+                                    security_event.event_type.value,
+                                    security_event.camera_id,
+                                    security_event.timestamp_start.isoformat(),
+                                    security_event.severity.value,
+                                    security_event.model_dump(),
+                                )
+                            except Exception:
+                                pass
+
                         new_incidents = incident_engine.process_events(security_events)
                         # Persist incidents to SQLite
                         for inc in new_incidents:
@@ -168,6 +217,7 @@ class AIPipelineManager:
         camera_id: str,
         detector: Detector,
         tracker: Tracker,
+        enable_anpr: bool = False,
     ) -> PipelineStatus:
 
         if camera_id in self.workers:
@@ -187,6 +237,7 @@ class AIPipelineManager:
             camera_manager=self.camera_manager,
             detector=detector,
             tracker=tracker,
+            enable_anpr=enable_anpr,
         )
 
         self.workers[camera_id] = worker

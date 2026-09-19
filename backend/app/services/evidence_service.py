@@ -84,6 +84,18 @@ class EvidenceService:
             "sha256": sha256,
         }
 
+    def save_crop(
+        self,
+        crop,
+        camera_id: str,
+        event_id: str,
+        timestamp: datetime | None = None,
+    ) -> dict:
+        """Save a crop associated with an event, such as an ANPR plate."""
+        metadata = self.save_snapshot(crop, camera_id, event_id, timestamp)
+        metadata["evidence_type"] = "crop"
+        return metadata
+
     def get_evidence_path(
         self,
         camera_id: str,

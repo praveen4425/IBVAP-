@@ -181,7 +181,11 @@ def get_evidence(evidence_id: str):
 
 @app.get("/api/anpr")
 def get_anpr():
-    return []
+    return [
+        event
+        for event in event_engine.get_all_events()
+        if event.event_type.value in {"anpr_read", "anpr_detected"}
+    ]
 
 @app.get("/api/face-analytics")
 def get_face_analytics():

@@ -14,6 +14,7 @@ class EventType(str, Enum):
     DWELL_EXCEEDED = "dwell_exceeded"
     ANOMALY = "anomaly"
     ANPR_DETECTED = "anpr_detected"
+    ANPR_READ = "anpr_read"
     FACE_DETECTED = "face_detected"
 
 

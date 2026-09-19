@@ -13,6 +13,8 @@ class TemporalEvent:
     track_id: str
     timestamp: datetime
     explanation: str
+    object_class: str
+    confidence: float
 
 @dataclass
 class _TrackHistory:
@@ -69,6 +71,8 @@ class TemporalEngine:
                                     track_id=track.track_id,
                                     timestamp=timestamp,
                                     explanation=f"{track.class_name} has been loitering for {elapsed:.1f} seconds."
+                                    ,object_class=track.class_name,
+                                    confidence=track.confidence,
                                 )
                             )
 

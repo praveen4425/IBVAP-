@@ -34,6 +34,8 @@ class ZoneEvent:
     line_id: str | None
     timestamp: datetime
     explanation: str
+    object_class: str
+    confidence: float
 
 
 @dataclass
@@ -196,6 +198,8 @@ class ZoneEngine:
                         f"restricted zone '{zone.name}' "
                         f"for {dwell_seconds:.1f} seconds."
                     ),
+                    object_class=track.class_name,
+                    confidence=track.confidence,
                 )
             )
 
@@ -265,6 +269,8 @@ class ZoneEngine:
                         f"{track.class_name} crossed "
                         f"virtual line '{line.name}'."
                     ),
+                    object_class=track.class_name,
+                    confidence=track.confidence,
                 )
             )
 

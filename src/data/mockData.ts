@@ -167,19 +167,6 @@ export const CAMERAS: CameraData[] = [
         isAlert: true,
         alertText: 'BREACH ALERT — TRIPWIRE VIOLATION',
         subLabel: 'DISP: TGT VECT -> EAST [Conf: 0.94]'
-      },
-      {
-        id: 'det-06',
-        trackId: '108',
-        className: 'ANIMAL',
-        confidence: 0.81,
-        type: 'animal',
-        bbox: { top: '56%', left: '74%', width: '18%', height: '22%' },
-        dwellTime: '120s',
-        speed: '0.4 m/s',
-        heading: '090° E',
-        bufferDist: '8.4m',
-        subLabel: 'CATTLE (FILTERED NON-THREAT)'
       }
     ]
   },
@@ -520,7 +507,7 @@ export const EVIDENCE_RECORDS: EvidenceRecord[] = [
     category: 'ANPR / OCR',
     clipDuration: '00:15 STILL+CLIP',
     mediaType: 'anpr',
-    previewImageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBhiKh0ezJWevM9l4FJg6tBHC5r-WT30is1qm-J9f9kIw4WKCOfGMdxuByNI-OSomYyIG-020svE7nbJmVGgs3pRAb2yZQjR_8uCXVZIeGlF76xMmcb6NLoHjZy8PK5l-6yNO0zCbCQHXpLOMZ3YOQJdDQpAb6wpVzgf4rL3MowVk1-lvp3lbnMDOkz7HM9YSQlkCiIaPrzdrvZ_a2fK4-758lPyfwiLYgHvoDgggfwkPACTNf001j0',
+    previewImageUrl: '/evidence/ev-2026-081-indian-plate.png',
     cryptoHash: 'SHA-256: d23eb817c09341aa99fa',
     gpsAnchor: '27.02110° N, 84.87210° E',
     tamperStatus: 'Unaltered / Signed',

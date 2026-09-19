@@ -108,6 +108,8 @@ class EventEngine:
         
         metadata = {
             "source": event.__class__.__name__,
+            "detected_object": getattr(event, "object_class", None),
+            "detection_confidence": getattr(event, "confidence", 1.0),
         }
         if line_id:
             metadata["line_id"] = line_id
@@ -160,7 +162,7 @@ class EventEngine:
             return Severity.P2_MEDIUM
         if event_type == "behavior_anomaly":
             return Severity.P3_LOW
-        if event_type == "anpr_read":
+        if event_type in {"anpr_read", "anpr_detected"}:
             return Severity.P4_INFO
         if event_type == "face_detected":
             return Severity.P4_INFO

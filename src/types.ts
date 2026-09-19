@@ -13,7 +13,7 @@ export interface DetectionItem {
   trackId?: string;
   className: string;
   confidence: number;
-  type: 'person' | 'vehicle' | 'animal' | 'plate';
+  type: 'person' | 'vehicle' | 'plate';
   bbox?: {
     top: string;
     left: string;
