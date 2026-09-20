@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavigationPage, IncidentRecord, CameraData } from './types';
+import { NavigationPage, IncidentRecord, CameraData, DetectionItem } from './types';
 import { CAMERAS, INCIDENTS, ANPR_SCANS, FACE_SUBJECTS, EVIDENCE_RECORDS } from './data/mockData';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -25,6 +25,41 @@ export default function App() {
   const [anprScans, setAnprScans] = useState(ANPR_SCANS);
   const [faceSubjects, setFaceSubjects] = useState(FACE_SUBJECTS);
   const [evidence, setEvidence] = useState(EVIDENCE_RECORDS);
+  const [liveDetections, setLiveDetections] = useState<DetectionItem[]>([]);
+  const [liveAlerts, setLiveAlerts] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchLivePipeline = async () => {
+      try {
+        const [liveRes, eventsRes] = await Promise.all([
+          fetch("http://127.0.0.1:8000/api/video/live"),
+          fetch("http://127.0.0.1:8000/api/events"),
+        ]);
+        if (liveRes.ok) {
+          const live = await liveRes.json();
+          const detections: DetectionItem[] = live.detections.map((d: any, index: number) => ({
+            id: `live-${index}`,
+            className: d.class_name,
+            confidence: d.confidence,
+            type: d.class_name.toLowerCase() === 'person' ? 'person' : 'vehicle',
+          }));
+          setLiveDetections(detections);
+          setCameras((current) => current.map((camera) =>
+            camera.id === 'CAM-01'
+              ? { ...camera, detections, status: detections.length ? 'alert' : 'online' }
+              : camera
+          ));
+        }
+        if (eventsRes.ok) setLiveAlerts(await eventsRes.json());
+      } catch (error) {
+        console.error('Live pipeline not reachable', error);
+      }
+    };
+
+    fetchLivePipeline();
+    const interval = setInterval(fetchLivePipeline, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -178,6 +213,8 @@ export default function App() {
           <DashboardView
             cameras={cameras}
             incidents={incidents}
+            liveDetections={liveDetections}
+            liveAlerts={liveAlerts}
             onSelectCamera={handleSelectCamera}
             onNavigateIncidents={handleNavigateIncidents}
             onOpenDispatch={handleOpenDispatch}

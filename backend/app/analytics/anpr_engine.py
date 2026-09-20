@@ -82,3 +82,35 @@ class ANPREngine:
                     evidence_crop=crop
                 )
         return None
+
+    def analyze_once(self, camera_id: str, track_id: str, frame: Any, bbox: Any) -> ANPREvent | None:
+        if not self.enabled:
+            return None
+
+        x1, y1, x2, y2 = int(bbox.x1), int(bbox.y1), int(bbox.x2), int(bbox.y2)
+        height, width = frame.shape[:2]
+        x1, y1, x2, y2 = max(0, x1), max(0, y1), min(width, x2), min(height, y2)
+        if y2 - y1 < 20 or x2 - x1 < 20:
+            return None
+
+        plate_crop = frame[int(y1 + 0.6 * (y2 - y1)):y2, x1:x2]
+        best_plate = None
+        best_conf = 0.0
+        for _, text, probability in self.reader.readtext(plate_crop):
+            normalized = self._normalize_plate(text)
+            if len(normalized) >= 6 and probability > best_conf:
+                best_plate = normalized
+                best_conf = probability
+
+        if not best_plate or best_conf <= 0.5:
+            return None
+
+        return ANPREvent(
+            event_type="anpr_read",
+            camera_id=camera_id,
+            track_id=track_id,
+            plate_number=best_plate,
+            confidence=best_conf,
+            timestamp=datetime.now(timezone.utc),
+            evidence_crop=plate_crop,
+        )

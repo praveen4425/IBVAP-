@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-import numpy as np
+import cv2
 
 @dataclass
 class FaceEvent:
@@ -15,13 +15,9 @@ class FaceEvent:
 
 class FaceEngine:
     def __init__(self):
-        try:
-            from retinaface import RetinaFace
-            self.model = RetinaFace
-            self.enabled = True
-        except ImportError:
-            self.enabled = False
-            self.model = None
+        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        self.model = cv2.CascadeClassifier(cascade_path)
+        self.enabled = not self.model.empty()
 
     def analyze(self, camera_id: str, track_id: str, frame: Any, bbox: Any) -> FaceEvent | None:
         if not self.enabled:
@@ -37,29 +33,23 @@ class FaceEngine:
         # Crop person bounding box
         crop = frame[y1:y2, x1:x2]
         
-        # Retinaface detection
-        resp = self.model.detect_faces(crop)
-        
-        if isinstance(resp, dict):
-            # Find most confident face
-            best_face = None
-            best_conf = 0.0
-            
-            for key, face in resp.items():
-                conf = face["score"]
-                if conf > best_conf:
-                    best_conf = conf
-                    best_face = face
-            
-            if best_face and best_conf > 0.8:
-                return FaceEvent(
-                    event_type="face_detected",
-                    camera_id=camera_id,
-                    track_id=track_id,
-                    confidence=best_conf,
-                    timestamp=datetime.now(timezone.utc),
-                    evidence_crop=crop,
-                    metadata={"facial_area": best_face["facial_area"]}
-                )
+        faces = self.model.detectMultiScale(
+            cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY),
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30),
+        )
+        if len(faces):
+            x, y, width, height = max(faces, key=lambda face: face[2] * face[3])
+            confidence = min(0.99, (width * height) / float(crop.shape[0] * crop.shape[1]) + 0.5)
+            return FaceEvent(
+                event_type="face_detected",
+                camera_id=camera_id,
+                track_id=track_id,
+                confidence=confidence,
+                timestamp=datetime.now(timezone.utc),
+                evidence_crop=crop,
+                metadata={"facial_area": [int(x), int(y), int(width), int(height)]},
+            )
                 
         return None

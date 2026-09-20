@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { CameraData, IncidentRecord, NavigationPage } from '../types';
+import { CameraData, DetectionItem, IncidentRecord, NavigationPage } from '../types';
 
 interface DashboardViewProps {
   cameras: CameraData[];
   incidents: IncidentRecord[];
+  liveDetections: DetectionItem[];
+  liveAlerts: any[];
   onSelectCamera: (cameraId: string) => void;
   onNavigateIncidents: (incidentId?: string) => void;
   onOpenDispatch: (incident: IncidentRecord) => void;
@@ -13,6 +15,8 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   cameras,
   incidents,
+  liveDetections,
+  liveAlerts,
   onSelectCamera,
   onNavigateIncidents,
   onOpenDispatch,
@@ -26,6 +30,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const cam2 = cameras.find((c) => c.id === 'CAM-02') || cameras[1] || cameras[0];
   const cam3 = cameras.find((c) => c.id === 'CAM-03') || cameras[2] || cameras[0];
   const cam4 = cameras.find((c) => c.id === 'CAM-04') || cameras[3] || cameras[0];
+  const peopleCount = liveDetections.filter((d) => d.type === 'person').length;
+  const vehicleCount = liveDetections.filter((d) => d.type === 'vehicle').length;
 
   const handleQuickNav = (page: NavigationPage) => {
     if (onNavigatePage) {
@@ -49,6 +55,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Real-time monitoring &amp; AI-powered threat detection
           </p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-slate-800">
+        <span className="font-bold">Live pipeline:</span>{' '}
+        {liveDetections.length} detections ({peopleCount} people, {vehicleCount} vehicles) · {liveAlerts.length} alerts
+        {liveAlerts[0] && <> · <span className="font-semibold">{liveAlerts[0].explanation}</span></>}
       </div>
 
       {/* 2. Top Statistics Cards (4 Cards in a Row) */}
@@ -79,7 +91,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-[13px] font-medium text-[#64748b]">Persons Detected</span>
             <div className="my-1.5">
               <span className="text-2xl font-bold text-[#0f172a] font-mono tracking-tight">
-                12
+                {peopleCount}
               </span>
             </div>
             <div className="flex items-center gap-1 text-xs font-semibold text-[#10b981]">
@@ -98,7 +110,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-[13px] font-medium text-[#64748b]">Vehicles Detected</span>
             <div className="my-1.5">
               <span className="text-2xl font-bold text-[#0f172a] font-mono tracking-tight">
-                07
+                {vehicleCount}
               </span>
             </div>
             <div className="flex items-center gap-1 text-xs font-semibold text-[#10b981]">
@@ -117,7 +129,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-[13px] font-medium text-[#64748b]">Active Incidents</span>
             <div className="my-1.5">
               <span className="text-2xl font-bold text-[#0f172a] font-mono tracking-tight">
-                03
+                {liveAlerts.length}
               </span>
             </div>
             <div className="flex items-center gap-1 text-xs font-semibold text-[#ef4444]">

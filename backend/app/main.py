@@ -1,5 +1,8 @@
 from pathlib import Path
+from functools import lru_cache
 
+import cv2
+import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.background import BackgroundTasks
@@ -7,6 +10,8 @@ from fastapi.background import BackgroundTasks
 from pydantic import BaseModel
 
 from app.services.camera_manager import camera_manager
+from app.analytics.anpr_engine import ANPREngine
+from app.services.ultralytics_detector import UltralyticsDetector
 
 from app.core.config import APP_NAME, APP_VERSION
 from app.schemas.events import HealthResponse, utc_now
@@ -18,6 +23,8 @@ from app.services.video_processing import (
     create_job,
     get_job,
     process_video,
+    get_live_results,
+    MODEL_PATH,
 )
 
 
@@ -104,6 +111,11 @@ def video_job_output(job_id: str):
         raise HTTPException(status_code=404, detail="Processed video is not available")
     return FileResponse(output_path, media_type="video/mp4", filename=f"{job.filename}.annotated.mp4")
 
+
+@app.get("/api/video/live")
+def video_live_results():
+    return get_live_results()
+
 class CameraRequest(BaseModel):
     camera_id: str
     name: str
@@ -186,6 +198,45 @@ def get_anpr():
         for event in event_engine.get_all_events()
         if event.event_type.value in {"anpr_read", "anpr_detected"}
     ]
+
+
+@lru_cache(maxsize=1)
+def _get_anpr_components():
+    return UltralyticsDetector(str(MODEL_PATH)), ANPREngine()
+
+
+@app.post("/api/anpr")
+async def analyze_anpr(file: UploadFile = File(...)):
+    image_bytes = await file.read()
+    await file.close()
+    frame = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if frame is None:
+        raise HTTPException(status_code=400, detail="Uploaded file is not a readable image")
+
+    detector, anpr_engine = _get_anpr_components()
+    vehicle_detections = [
+        detection
+        for detection in detector.detect(frame)
+        if detection.class_name.lower() in {"car", "motorcycle", "bus", "truck"}
+    ]
+    if not vehicle_detections:
+        return {"plate_number": None, "confidence": 0.0, "vehicle_detected": False}
+
+    event = anpr_engine.analyze_once(
+        camera_id="anpr-upload",
+        track_id="ANPR-1",
+        frame=frame,
+        bbox=vehicle_detections[0].bbox,
+    )
+    if event is None:
+        return {"plate_number": None, "confidence": 0.0, "vehicle_detected": True}
+
+    return {
+        "plate_number": event.plate_number,
+        "confidence": event.confidence,
+        "vehicle_detected": True,
+        "vehicle_class": vehicle_detections[0].class_name,
+    }
 
 @app.get("/api/face-analytics")
 def get_face_analytics():
