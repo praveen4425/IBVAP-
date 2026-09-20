@@ -10,7 +10,7 @@ coverage/
 # Python / Backend
 *.pyc
 __pycache__/
-*.pt
+# *.pt
 
 # Virtual Environments
 venv/

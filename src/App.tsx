@@ -13,6 +13,8 @@ import { FaceAnalyticsView } from './views/FaceAnalyticsView';
 import { EvidenceView } from './views/EvidenceView';
 import { AdminConsoleView } from './views/AdminConsoleView';
 
+const API_BASE = (import.meta as any).env.VITE_API_URL || "http://127.0.0.1:8000";
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState<NavigationPage>('dashboard');
   const [selectedCameraId, setSelectedCameraId] = useState<string>('CAM-01');
@@ -32,8 +34,8 @@ export default function App() {
     const fetchLivePipeline = async () => {
       try {
         const [liveRes, eventsRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/video/live"),
-          fetch("http://127.0.0.1:8000/api/events"),
+          fetch(`${API_BASE}/api/video/live`),
+          fetch(`${API_BASE}/api/events`),
         ]);
         if (liveRes.ok) {
           const live = await liveRes.json();
@@ -64,8 +66,8 @@ export default function App() {
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const incRes = await fetch("http://127.0.0.1:8000/api/incidents");
-        const evRes = await fetch("http://127.0.0.1:8000/api/evidence").catch(() => null);
+        const incRes = await fetch(`${API_BASE}/api/incidents`);
+        const evRes = await fetch(`${API_BASE}/api/evidence`).catch(() => null);
         
         if (evRes && evRes.ok) {
           const evData = await evRes.json();
@@ -77,8 +79,8 @@ export default function App() {
               cameraId: ev.camera_id || 'CAM-01',
               cameraName: `CAM: ${ev.camera_id || 'Unknown'}`,
               description: `Automated Evidence for Event`,
-              fileUrl: `http://127.0.0.1:8000/api/evidence/download/${ev.evidence_id}`,
-              thumbnailUrl: `http://127.0.0.1:8000/api/evidence/download/${ev.evidence_id}`
+              fileUrl: `${API_BASE}/api/evidence/download/${ev.evidence_id}`,
+              thumbnailUrl: `${API_BASE}/api/evidence/download/${ev.evidence_id}`
             }));
             setEvidence(mappedEv);
           }
@@ -102,7 +104,7 @@ export default function App() {
               severity: inc.severity === 'P0_CRITICAL' || inc.severity === 'P1_HIGH' ? 'critical' : inc.severity === 'P2_MEDIUM' ? 'medium' : 'low',
               status: inc.lifecycle_status === 1 ? 'Open / Active' : inc.lifecycle_status === 2 ? 'Acknowledged' : 'Resolved',
               triggerFrameUrl: inc.metadata && inc.metadata.evidence_refs && inc.metadata.evidence_refs.length > 0 
-                ? `http://127.0.0.1:8000/api/evidence/download/${inc.metadata.evidence_refs[0]}` 
+                ? `${API_BASE}/api/evidence/download/${inc.metadata.evidence_refs[0]}` 
                 : 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZ75ko-hSH40qHJheNfXeIhheinGuuDBv-Ysrt7MKNVCdaIYDDwAgOxWBqtm8_ug8U3M-77EAnKijDgXwV8UOYbcPW7jVBCyvOEeonF2WpKFenUafCgivsOs9GtyOVdzzUYUkelETr6b5Eqx4xiu6Ok48ODfmKGDoZqKXzkQs_A14ETMdB1tZlfKARBQJAMzGePh2LcmpyLk5GPQPQKHpzf8wxXzH8kwE1FFmU6hv1HeogjUSmqCIp',
               coordinates: 'Live Geo',
               ingestStream: 'Live Stream',

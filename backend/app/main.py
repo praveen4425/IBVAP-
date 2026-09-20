@@ -36,9 +36,19 @@ app = FastAPI(
     description="Intelligent Border Video Analytics Platform",
 )
 
+import os
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000"
+]
+frontend_url = os.environ.get("FRONTEND_URL")
+if frontend_url:
+    origins.extend([url.strip() for url in frontend_url.split(",") if url.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
