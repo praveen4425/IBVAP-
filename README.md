@@ -68,7 +68,7 @@ The FastAPI backend serves endpoints at `http://127.0.0.1:8000`:
 - `GET /api/ai/status` - Pipeline processing health
 
 ## Third-Party Licenses
-Please review `THIRD_PARTY_LICENSES.md` for complete licensing information of integrated ML models and algorithms.
+Please review [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md) for complete licensing information of integrated ML models and algorithms.
 
 ## Troubleshooting
 - **No Video Feed?** Ensure your webcam is available, or modify `run_demo.py` to point to an MP4 or RTSP stream instead of `"0"`.
