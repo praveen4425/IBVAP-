@@ -103,4 +103,8 @@ class DatabaseService:
                 (metadata["evidence_id"], metadata.get("event_id"), metadata["camera_id"], metadata["timestamp"], metadata["path"], metadata["sha256"])
             )
 
+    def get_evidence(self) -> list[dict]:
+        with self._get_connection() as conn:
+            return [dict(row) for row in conn.execute("SELECT * FROM evidence ORDER BY timestamp DESC").fetchall()]
+
 database_service = DatabaseService()

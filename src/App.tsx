@@ -65,6 +65,25 @@ export default function App() {
     const fetchData = async () => {
       try {
         const incRes = await fetch("http://127.0.0.1:8000/api/incidents");
+        const evRes = await fetch("http://127.0.0.1:8000/api/evidence").catch(() => null);
+        
+        if (evRes && evRes.ok) {
+          const evData = await evRes.json();
+          if (evData.length > 0) {
+            const mappedEv = evData.map((ev: any) => ({
+              id: ev.evidence_id,
+              type: 'snapshot',
+              timestamp: ev.timestamp,
+              cameraId: ev.camera_id || 'CAM-01',
+              cameraName: `CAM: ${ev.camera_id || 'Unknown'}`,
+              description: `Automated Evidence for Event`,
+              fileUrl: `http://127.0.0.1:8000/api/evidence/download/${ev.evidence_id}`,
+              thumbnailUrl: `http://127.0.0.1:8000/api/evidence/download/${ev.evidence_id}`
+            }));
+            setEvidence(mappedEv);
+          }
+        }
+
         if (incRes.ok) {
           const incData = await incRes.json();
           if (incData.length > 0) {
@@ -80,9 +99,11 @@ export default function App() {
               description: inc.explanation || 'No description available',
               targetClass: 'MIXED',
               confidence: inc.correlation_score || 0.8,
-              severity: inc.severity === 4 ? 'critical' : inc.severity === 3 ? 'high' : inc.severity === 2 ? 'medium' : 'low',
+              severity: inc.severity === 'P0_CRITICAL' || inc.severity === 'P1_HIGH' ? 'critical' : inc.severity === 'P2_MEDIUM' ? 'medium' : 'low',
               status: inc.lifecycle_status === 1 ? 'Open / Active' : inc.lifecycle_status === 2 ? 'Acknowledged' : 'Resolved',
-              triggerFrameUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZ75ko-hSH40qHJheNfXeIhheinGuuDBv-Ysrt7MKNVCdaIYDDwAgOxWBqtm8_ug8U3M-77EAnKijDgXwV8UOYbcPW7jVBCyvOEeonF2WpKFenUafCgivsOs9GtyOVdzzUYUkelETr6b5Eqx4xiu6Ok48ODfmKGDoZqKXzkQs_A14ETMdB1tZlfKARBQJAMzGePh2LcmpyLk5GPQPQKHpzf8wxXzH8kwE1FFmU6hv1HeogjUSmqCIp',
+              triggerFrameUrl: inc.metadata && inc.metadata.evidence_refs && inc.metadata.evidence_refs.length > 0 
+                ? `http://127.0.0.1:8000/api/evidence/download/${inc.metadata.evidence_refs[0]}` 
+                : 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZ75ko-hSH40qHJheNfXeIhheinGuuDBv-Ysrt7MKNVCdaIYDDwAgOxWBqtm8_ug8U3M-77EAnKijDgXwV8UOYbcPW7jVBCyvOEeonF2WpKFenUafCgivsOs9GtyOVdzzUYUkelETr6b5Eqx4xiu6Ok48ODfmKGDoZqKXzkQs_A14ETMdB1tZlfKARBQJAMzGePh2LcmpyLk5GPQPQKHpzf8wxXzH8kwE1FFmU6hv1HeogjUSmqCIp',
               coordinates: 'Live Geo',
               ingestStream: 'Live Stream',
               activePipeline: 'IBVAP Pipeline',

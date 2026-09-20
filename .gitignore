@@ -7,7 +7,24 @@ coverage/
 .env*
 !.env.example
 
+# Python / Backend
 *.pyc
 __pycache__/
 *.pt
+
+# Virtual Environments
+venv/
+.venv/
+.venv-*/
+.venv-1/
+
+# Runtime / DB
+*.db
+ibvap.db
+backend/ibvap.db
+sqlite.db
+
+# Evidence / Storage
 backend/evidence/
+evidence/
+scratch/

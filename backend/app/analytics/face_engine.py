@@ -18,9 +18,10 @@ class FaceEngine:
         cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         self.model = cv2.CascadeClassifier(cascade_path)
         self.enabled = not self.model.empty()
+        self.seen_tracks = set()
 
     def analyze(self, camera_id: str, track_id: str, frame: Any, bbox: Any) -> FaceEvent | None:
-        if not self.enabled:
+        if not self.enabled or track_id in self.seen_tracks:
             return None
             
         x1, y1, x2, y2 = int(bbox.x1), int(bbox.y1), int(bbox.x2), int(bbox.y2)
@@ -42,6 +43,7 @@ class FaceEngine:
         if len(faces):
             x, y, width, height = max(faces, key=lambda face: face[2] * face[3])
             confidence = min(0.99, (width * height) / float(crop.shape[0] * crop.shape[1]) + 0.5)
+            self.seen_tracks.add(track_id)
             return FaceEvent(
                 event_type="face_detected",
                 camera_id=camera_id,

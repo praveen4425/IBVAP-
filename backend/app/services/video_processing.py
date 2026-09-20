@@ -14,6 +14,10 @@ from app.services.ultralytics_detector import UltralyticsDetector
 from app.analytics.zone_engine import ZoneEngine, VirtualLine
 from app.analytics.face_engine import FaceEngine
 from app.services.event_engine import event_engine
+from app.services.incident_engine import incident_engine
+from app.services.evidence_service import evidence_service
+from app.storage.database import database_service
+from app.analytics.temporal_engine import TemporalEngine
 
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
 MAX_UPLOAD_BYTES = 500 * 1024 * 1024
@@ -149,9 +153,10 @@ def process_video(job_id: str, input_path: Path) -> None:
             raise RuntimeError("Unable to create the annotated output video")
 
         update_job(job_id, state="processing", total_frames=total_frames)
-        detector = UltralyticsDetector(str(MODEL_PATH))
+        detector = UltralyticsDetector(str(MODEL_PATH), conf_thresh=0.45)
         tracker = BasicTracker()
         face_engine = FaceEngine()
+        temporal_engine = TemporalEngine()
         zone_engine = ZoneEngine(
             lines=[
                 VirtualLine(
@@ -163,6 +168,7 @@ def process_video(job_id: str, input_path: Path) -> None:
             ]
         )
         counts: dict[str, int] = {}
+        seen_tracks = set()
 
         while True:
             success, frame = capture.read()
@@ -173,15 +179,54 @@ def process_video(job_id: str, input_path: Path) -> None:
             tracks = tracker.update(detections)
             _update_live_results(job_id, "processing", detections)
             raw_events = zone_engine.analyze("video-upload", tracks)
+            temporal_events = temporal_engine.analyze("video-upload", tracks)
+            if temporal_events:
+                raw_events.extend(temporal_events)
             for track in tracks:
                 if track.class_name.lower() == "person":
                     face_event = face_engine.analyze("video-upload", track.track_id, frame, track.bbox)
                     if face_event is not None:
                         raw_events.append(face_event)
             if raw_events:
-                event_engine.process_events(raw_events)
-            for detection in detections:
-                counts[detection.class_name] = counts.get(detection.class_name, 0) + 1
+                security_events = event_engine.process_events(raw_events)
+                if security_events:
+                    for evt in security_events:
+                        try:
+                            metadata = evidence_service.save_snapshot(
+                                frame, "video-upload", evt.event_id
+                            )
+                            database_service.save_evidence(metadata)
+                            evt.evidence_refs.append(metadata["evidence_id"])
+                        except Exception:
+                            pass
+                    new_incidents = incident_engine.process_events(security_events)
+                    for inc in new_incidents:
+                        try:
+                            # Aggregate evidence refs from events
+                            refs = []
+                            for e in security_events:
+                                if e.event_id in inc.event_ids:
+                                    refs.extend(e.evidence_refs)
+                            inc.metadata["evidence_refs"] = refs
+                            
+                            database_service.save_incident(
+                                inc.incident_id,
+                                inc.severity.value,
+                                inc.lifecycle_status.value,
+                                inc.timestamp_start.isoformat(),
+                                {
+                                    "camera_ids": inc.camera_ids,
+                                    "track_ids": inc.track_ids,
+                                    "explanation": inc.explanation,
+                                    "correlation_score": inc.correlation_score,
+                                }
+                            )
+                        except Exception:
+                            pass
+            for track in tracks:
+                if track.track_id not in seen_tracks:
+                    seen_tracks.add(track.track_id)
+                    counts[track.class_name] = counts.get(track.class_name, 0) + 1
             writer.write(_annotate_frame(frame, detections, tracks))
 
             processed_frames = int(capture.get(cv2.CAP_PROP_POS_FRAMES))

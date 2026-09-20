@@ -186,10 +186,25 @@ def ack_incident(incident_id: str):
 def resolve_incident(incident_id: str):
     return incident_engine.resolve_incident(incident_id)
 
-@app.get("/api/evidence/{evidence_id}")
+@app.get('/api/evidence')
+def list_evidence():
+    from app.storage.database import database_service
+    return database_service.get_evidence()
+
+@app.get('/api/evidence/{evidence_id}')
 def get_evidence(evidence_id: str):
-    # For MVP, mock fetching from db/service
     return {"evidence_id": evidence_id, "status": "available"}
+
+@app.get("/api/evidence/download/{evidence_id}")
+def download_evidence(evidence_id: str):
+    from app.storage.database import database_service
+    from fastapi.responses import FileResponse
+    ev_list = database_service.get_evidence()
+    ev = next((e for e in ev_list if e["evidence_id"] == evidence_id), None)
+    if not ev:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+    return FileResponse(ev["path"])
+
 
 @app.get("/api/anpr")
 def get_anpr():
