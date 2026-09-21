@@ -15,10 +15,15 @@ class FaceEvent:
 
 class FaceEngine:
     def __init__(self):
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        self.model = cv2.CascadeClassifier(cascade_path)
-        self.enabled = not self.model.empty()
         self.seen_tracks = set()
+        self.enabled = False
+        try:
+            if hasattr(cv2, "CascadeClassifier") and hasattr(cv2, "data") and hasattr(cv2.data, "haarcascades"):
+                cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                self.model = cv2.CascadeClassifier(cascade_path)
+                self.enabled = not self.model.empty()
+        except Exception:
+            self.enabled = False
 
     def analyze(self, camera_id: str, track_id: str, frame: Any, bbox: Any) -> FaceEvent | None:
         if not self.enabled or track_id in self.seen_tracks:
