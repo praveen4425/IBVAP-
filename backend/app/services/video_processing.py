@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+import gc
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -214,34 +215,40 @@ def process_video(job_id: str, input_path: Path) -> None:
             if height % 2 != 0:
                 height -= 1
             print(f"[DIAGNOSTIC] Job {job_id}: 4K/HD memory guard active. Target bounds {width}x{height}")
-            # If ffmpeg is available on the system, pre-scale on disk in a separate process
-            # to prevent OpenCV's C decoder from allocating 350MB of 4K DPB reference frames
+            # Release capture and garbage collect before spawning FFmpeg
+            capture.release()
+            capture = None
+            gc.collect()
+
             ffmpeg_bin = _get_ffmpeg_bin()
             if ffmpeg_bin:
                 downscaled_path = input_path.with_suffix(".scaled.mp4")
                 try:
                     cmd = [
-                        ffmpeg_bin, "-y",
+                        ffmpeg_bin,
+                        "-threads", "1",
+                        "-y",
                         "-i", str(input_path),
                         "-vf", f"scale={width}:{height}",
                         "-c:v", "libx264",
                         "-preset", "ultrafast",
+                        "-threads", "1",
                         "-crf", "28",
                         "-an",
                         str(downscaled_path),
                     ]
                     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
                     if res.returncode == 0 and downscaled_path.is_file() and downscaled_path.stat().st_size > 0:
-                        capture.release()
                         input_path.unlink(missing_ok=True)
                         input_path = downscaled_path
-                        capture = cv2.VideoCapture(str(input_path))
-                        total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or total_frames)
-                        fps = capture.get(cv2.CAP_PROP_FPS) or fps
                         needs_resize = False
                         print(f"[DIAGNOSTIC] Job {job_id}: Pre-scaled on disk to {width}x{height} via FFmpeg successfully")
                 except Exception as e:
                     print(f"[DIAGNOSTIC] Job {job_id}: FFmpeg pre-scale exception: {e}")
+
+            capture = cv2.VideoCapture(str(input_path))
+            total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or total_frames)
+            fps = capture.get(cv2.CAP_PROP_FPS) or fps
         else:
             width = orig_width
             height = orig_height
@@ -353,9 +360,13 @@ def process_video(job_id: str, input_path: Path) -> None:
             if ffmpeg_bin:
                 try:
                     cmd = [
-                        ffmpeg_bin, "-y",
+                        ffmpeg_bin,
+                        "-threads", "1",
+                        "-y",
                         "-i", str(actual_target_path),
                         "-c:v", "libx264",
+                        "-preset", "ultrafast",
+                        "-threads", "1",
                         "-pix_fmt", "yuv420p",
                         str(output_path)
                     ]
