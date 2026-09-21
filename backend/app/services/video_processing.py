@@ -123,33 +123,62 @@ def _annotate_frame(frame: Any, detections: list[Any], tracks: list[Any]) -> Any
     return frame
 
 
+def _create_video_writer(output_path: Path, fps: float, width: int, height: int) -> tuple[cv2.VideoWriter, str]:
+    codecs_to_try = ["mp4v", "avc1", "H264", "XVID", "MJPG"]
+    for codec in codecs_to_try:
+        try:
+            fourcc = cv2.VideoWriter_fourcc(*codec)
+            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+            if writer.isOpened():
+                return writer, codec
+            writer.release()
+        except Exception:
+            pass
+
+    if hasattr(cv2, "CAP_MSMF"):
+        for codec in codecs_to_try:
+            try:
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                writer = cv2.VideoWriter(str(output_path), cv2.CAP_MSMF, fourcc, fps, (width, height))
+                if writer.isOpened():
+                    return writer, f"CAP_MSMF_{codec}"
+                writer.release()
+            except Exception:
+                pass
+
+    raise RuntimeError("Unable to create the annotated output video")
+
+
 def process_video(job_id: str, input_path: Path) -> None:
     output_path = VIDEO_DIR / f"{job_id}.mp4"
     capture = None
     writer = None
+    file_size = input_path.stat().st_size if input_path.exists() else 0
+    print(f"[DIAGNOSTIC] Job {job_id}: Processing file '{input_path.name}', size={file_size} bytes")
+
     try:
         if not MODEL_PATH.is_file():
             raise RuntimeError(f"YOLO model not found: {MODEL_PATH.name}")
 
         capture = cv2.VideoCapture(str(input_path))
-        if not capture.isOpened():
+        is_opened = capture.isOpened()
+        print(f"[DIAGNOSTIC] Job {job_id}: cv2.VideoCapture opened: {is_opened}")
+        if not is_opened:
             raise RuntimeError("The uploaded file is not a readable video")
 
         total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         fps = capture.get(cv2.CAP_PROP_FPS) or 25.0
         width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
         height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+        print(f"[DIAGNOSTIC] Job {job_id}: fps={fps}, width={width}, height={height}, total_frames={total_frames}")
+
         if width <= 0 or height <= 0:
             raise RuntimeError("The video has no readable frame dimensions")
 
-        writer = cv2.VideoWriter(
-            str(output_path),
-            cv2.CAP_MSMF,
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            fps,
-            (width, height),
-        )
-        if not writer.isOpened():
+        writer, codec_used = _create_video_writer(output_path, fps, width, height)
+        writer_opened = writer.isOpened() if writer else False
+        print(f"[DIAGNOSTIC] Job {job_id}: Selected output codec='{codec_used}', isOpened={writer_opened}")
+        if not writer_opened:
             raise RuntimeError("Unable to create the annotated output video")
 
         update_job(job_id, state="processing", total_frames=total_frames)
@@ -238,7 +267,11 @@ def process_video(job_id: str, input_path: Path) -> None:
                 detection_counts=dict(counts),
             )
 
-        if not output_path.is_file() or output_path.stat().st_size == 0:
+        out_exists = output_path.is_file()
+        out_size = output_path.stat().st_size if out_exists else 0
+        print(f"[DIAGNOSTIC] Job {job_id}: Finished processing {processed_frames} frames. Output exists: {out_exists}, size={out_size} bytes")
+
+        if not out_exists or out_size == 0:
             raise RuntimeError("No annotated video was produced")
         update_job(
             job_id,
@@ -249,6 +282,7 @@ def process_video(job_id: str, input_path: Path) -> None:
         )
         _update_live_results(job_id, "completed", detections)
     except Exception as exc:
+        print(f"[DIAGNOSTIC] Job {job_id}: Exception occurred: {exc}")
         update_job(job_id, state="failed", error=str(exc))
         _update_live_results(job_id, "failed", [])
         output_path.unlink(missing_ok=True)
