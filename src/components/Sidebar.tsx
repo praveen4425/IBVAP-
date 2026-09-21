@@ -45,18 +45,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Logo Header */}
           <div className="px-5 pt-1 pb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#0052ff]/20 border border-[#0052ff]/40 flex items-center justify-center text-white shadow-inner">
-                <svg className="w-5 h-5 text-white fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2.2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-blue-600 to-cyan-500 p-[1.5px] shadow-lg shadow-blue-500/20">
+                <div className="w-full h-full bg-[#051124] rounded-[10px] flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-blue-500/10 animate-pulse" />
+                  <svg className="w-6 h-6 text-cyan-400 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V7l-9-5z" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M12 9v-2M12 17v-2M9 12H7M17 12h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
               </div>
               <div className="flex flex-col">
-                <span className="text-[20px] font-bold tracking-wider text-white font-sans leading-none">
-                  IBVAP
-                </span>
-                <span className="text-[10px] text-[#64748b] tracking-wider uppercase font-semibold mt-1">
-                  Sector Alpha
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[19px] font-black tracking-wider text-white font-sans leading-none">
+                    IBVAP
+                  </span>
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono">
+                    PS-187
+                  </span>
+                </div>
+                <span className="text-[10px] text-cyan-400/90 tracking-widest uppercase font-bold mt-1">
+                  Border AI • SIH 187
                 </span>
               </div>
             </div>

@@ -62,6 +62,15 @@ class DatabaseService:
                 )
             ''')
             conn.commit()
+            self.clear_all_data()
+
+    def clear_all_data(self):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events")
+            cursor.execute("DELETE FROM incidents")
+            cursor.execute("DELETE FROM evidence")
+            conn.commit()
 
     def save_camera(self, camera_id: str, name: str, stream_url: str):
         with self._get_connection() as conn:

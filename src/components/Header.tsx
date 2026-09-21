@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="flex flex-col justify-center">
           <h1 className="text-[15px] sm:text-[16px] font-bold text-[#0f172a] tracking-tight leading-tight">
-            AI-Based Intelligent Video Analytics Platform
+            Intelligent Border Video Analytics Platform
           </h1>
           <p className="text-[12px] text-[#64748b] font-normal leading-tight">
             for Border Surveillance
