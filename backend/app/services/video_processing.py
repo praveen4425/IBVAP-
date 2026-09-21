@@ -416,6 +416,12 @@ def process_video(job_id: str, input_path: Path) -> None:
             output_path.with_suffix(".temp.avi").unlink(missing_ok=True)
         except Exception:
             pass
+        gc.collect()
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
 
 
 def start_processing(job_id: str, input_path: Path) -> None:

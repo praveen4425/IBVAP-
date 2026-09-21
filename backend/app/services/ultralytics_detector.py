@@ -3,16 +3,19 @@ from typing import Any
 import threading
 import numpy as np
 
-import torch
-from ultralytics import YOLO
+_torch_initialized = False
 
-# Optimize PyTorch CPU memory & thread footprint for low-RAM cloud instances (Render 512MB)
-try:
-    torch.set_num_threads(1)
-    if hasattr(torch, "set_num_interop_threads"):
-        torch.set_num_interop_threads(1)
-except Exception:
-    pass
+def _init_torch():
+    global _torch_initialized
+    if not _torch_initialized:
+        import torch
+        try:
+            torch.set_num_threads(1)
+            if hasattr(torch, "set_num_interop_threads"):
+                torch.set_num_interop_threads(1)
+        except Exception:
+            pass
+        _torch_initialized = True
 
 from app.core.detection_config import ALLOWED_CLASSES
 from app.services.detector import Detector, Detection, BoundingBox, create_detection
@@ -23,11 +26,14 @@ class UltralyticsDetector(Detector):
     """
 
     def __init__(self, model_path: str = "yolov8n.pt", conf_thresh: float = 0.25):
+        _init_torch()
+        from ultralytics import YOLO
         self.model = YOLO(model_path)
         self.conf_thresh = conf_thresh
         self._inference_lock = threading.Lock()
 
     def detect(self, frame: Any) -> list[Detection]:
+        import torch
         # Run inference with torch.no_grad to minimize memory usage
         with self._inference_lock:
             with torch.no_grad():

@@ -69,22 +69,34 @@ def debug_system():
     res = {
         "ffmpeg_which": shutil.which("ffmpeg"),
     }
+    before_rss = None
+    after_rss = None
     try:
         with open("/proc/self/status") as f:
             for line in f:
-                if line.startswith("VmRSS:") or line.startswith("VmPeak:"):
-                    res[line.split(":")[0].strip()] = line.split(":")[1].strip()
-    except Exception as e:
-        res["proc_status_error"] = str(e)
+                if line.startswith("VmRSS:"):
+                    before_rss = line.split(":")[1].strip()
+    except Exception:
+        pass
+
+    import gc
+    import ctypes
+    gc.collect()
     try:
-        import imageio_ffmpeg
-        exe = imageio_ffmpeg.get_ffmpeg_exe()
-        res["imageio_ffmpeg_exe"] = str(exe)
-        res["exe_exists"] = os.path.exists(exe)
-        sub = subprocess.run([exe, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
-        res["ffmpeg_version"] = sub.stdout.splitlines()[0] if sub.stdout else sub.stderr
-    except Exception as e:
-        res["imageio_error"] = str(e)
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    after_rss = line.split(":")[1].strip()
+    except Exception:
+        pass
+
+    res["before_rss"] = before_rss
+    res["after_rss"] = after_rss
     return res
 
 
