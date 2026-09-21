@@ -106,6 +106,17 @@ def update_job(job_id: str, **updates: Any) -> None:
                 setattr(job, key, value)
 
 
+def _get_ffmpeg_bin() -> str | None:
+    try:
+        import imageio_ffmpeg
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and Path(exe).is_file():
+            return exe
+    except Exception:
+        pass
+    return shutil.which("ffmpeg")
+
+
 def _annotate_frame(frame: Any, detections: list[Any], tracks: list[Any]) -> Any:
     for detection, track in zip(detections, tracks):
         box = detection.bbox
@@ -205,7 +216,7 @@ def process_video(job_id: str, input_path: Path) -> None:
             print(f"[DIAGNOSTIC] Job {job_id}: 4K/HD memory guard active. Target bounds {width}x{height}")
             # If ffmpeg is available on the system, pre-scale on disk in a separate process
             # to prevent OpenCV's C decoder from allocating 350MB of 4K DPB reference frames
-            ffmpeg_bin = shutil.which("ffmpeg")
+            ffmpeg_bin = _get_ffmpeg_bin()
             if ffmpeg_bin:
                 downscaled_path = input_path.with_suffix(".scaled.mp4")
                 try:
@@ -225,6 +236,8 @@ def process_video(job_id: str, input_path: Path) -> None:
                         input_path.unlink(missing_ok=True)
                         input_path = downscaled_path
                         capture = cv2.VideoCapture(str(input_path))
+                        total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or total_frames)
+                        fps = capture.get(cv2.CAP_PROP_FPS) or fps
                         needs_resize = False
                         print(f"[DIAGNOSTIC] Job {job_id}: Pre-scaled on disk to {width}x{height} via FFmpeg successfully")
                 except Exception as e:
@@ -336,7 +349,7 @@ def process_video(job_id: str, input_path: Path) -> None:
 
         if actual_target_path != output_path and actual_target_path.is_file():
             converted = False
-            ffmpeg_bin = shutil.which("ffmpeg")
+            ffmpeg_bin = _get_ffmpeg_bin()
             if ffmpeg_bin:
                 try:
                     cmd = [

@@ -5,4 +5,5 @@ python-dotenv
 opencv-python-headless
 python-multipart
 easyocr
-ultralytics
+ultralytics
+imageio-ffmpeg
