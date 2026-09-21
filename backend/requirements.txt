@@ -6,4 +6,7 @@ opencv-python-headless
 python-multipart
 easyocr
 ultralytics
-imageio-ffmpeg
+imageio-ffmpeg
+torch
+numpy
+

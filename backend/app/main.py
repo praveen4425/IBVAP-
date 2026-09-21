@@ -61,45 +61,6 @@ def root():
     }
 
 
-@app.get("/api/debug/system")
-def debug_system():
-    import subprocess
-    import shutil
-    import os
-    res = {
-        "ffmpeg_which": shutil.which("ffmpeg"),
-    }
-    before_rss = None
-    after_rss = None
-    try:
-        with open("/proc/self/status") as f:
-            for line in f:
-                if line.startswith("VmRSS:"):
-                    before_rss = line.split(":")[1].strip()
-    except Exception:
-        pass
-
-    import gc
-    import ctypes
-    gc.collect()
-    try:
-        ctypes.CDLL("libc.so.6").malloc_trim(0)
-    except Exception:
-        pass
-
-    try:
-        with open("/proc/self/status") as f:
-            for line in f:
-                if line.startswith("VmRSS:"):
-                    after_rss = line.split(":")[1].strip()
-    except Exception:
-        pass
-
-    res["before_rss"] = before_rss
-    res["after_rss"] = after_rss
-    return res
-
-
 @app.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(
