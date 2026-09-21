@@ -8,11 +8,18 @@ _torch_initialized = False
 def _init_torch():
     global _torch_initialized
     if not _torch_initialized:
+        import os
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1"
+        os.environ["OPENBLAS_NUM_THREADS"] = "1"
+        os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+        os.environ["NUMEXPR_NUM_THREADS"] = "1"
         import torch
         try:
             torch.set_num_threads(1)
             if hasattr(torch, "set_num_interop_threads"):
                 torch.set_num_interop_threads(1)
+            torch.set_grad_enabled(False)
         except Exception:
             pass
         _torch_initialized = True
@@ -34,10 +41,10 @@ class UltralyticsDetector(Detector):
 
     def detect(self, frame: Any) -> list[Detection]:
         import torch
-        # Run inference with torch.no_grad to minimize memory usage
+        # Run inference with torch.inference_mode to minimize memory usage
         with self._inference_lock:
-            with torch.no_grad():
-                results = self.model(frame, conf=self.conf_thresh, verbose=False)
+            with torch.inference_mode():
+                results = self.model(frame, conf=self.conf_thresh, imgsz=640, verbose=False)
         
         detections = []
         if not results:

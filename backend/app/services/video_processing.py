@@ -50,6 +50,7 @@ class VideoJob:
     detection_counts: dict[str, int] = field(default_factory=dict)
     output_url: str | None = None
     error: str | None = None
+    stage: str = "queued"
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
@@ -249,6 +250,7 @@ def process_video(job_id: str, input_path: Path) -> None:
             capture = cv2.VideoCapture(str(input_path))
             total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or total_frames)
             fps = capture.get(cv2.CAP_PROP_FPS) or fps
+            update_job(job_id, stage=f"prescaled_{width}x{height}" if not needs_resize else "prescale_skipped")
         else:
             width = orig_width
             height = orig_height
@@ -261,11 +263,12 @@ def process_video(job_id: str, input_path: Path) -> None:
         if not writer_opened:
             raise RuntimeError("Unable to create the annotated output video")
 
-        update_job(job_id, state="processing", total_frames=total_frames)
+        update_job(job_id, state="processing", total_frames=total_frames, stage="loading_models")
         detector = UltralyticsDetector(str(MODEL_PATH), conf_thresh=0.45)
         tracker = BasicTracker()
         face_engine = FaceEngine()
         temporal_engine = TemporalEngine()
+        update_job(job_id, stage="running_inference")
         zone_engine = ZoneEngine(
             lines=[
                 VirtualLine(
@@ -348,6 +351,7 @@ def process_video(job_id: str, input_path: Path) -> None:
                 processed_frames=processed_frames,
                 progress=min(progress, 100.0),
                 detection_counts=dict(counts),
+                stage=f"frame_{processed_frames}",
             )
 
         if writer is not None:
