@@ -56,16 +56,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
               <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[19px] font-black tracking-wider text-white font-sans leading-none">
-                    IBVAP
-                  </span>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono">
-                    PS-187
-                  </span>
-                </div>
-                <span className="text-[10px] text-cyan-400/90 tracking-widest uppercase font-bold mt-1">
-                  Border AI • SIH 187
+                <span className="text-[20px] font-black tracking-wider text-white font-sans leading-none flex items-center gap-1.5">
+                  IBVAP
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                </span>
+                <span className="text-[10px] text-slate-400 tracking-widest uppercase font-semibold mt-1">
+                  Sector Alpha
                 </span>
               </div>
             </div>
