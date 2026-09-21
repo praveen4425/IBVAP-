@@ -61,6 +61,33 @@ def root():
     }
 
 
+@app.get("/api/debug/system")
+def debug_system():
+    import subprocess
+    import shutil
+    import os
+    res = {
+        "ffmpeg_which": shutil.which("ffmpeg"),
+    }
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:") or line.startswith("VmPeak:"):
+                    res[line.split(":")[0].strip()] = line.split(":")[1].strip()
+    except Exception as e:
+        res["proc_status_error"] = str(e)
+    try:
+        import imageio_ffmpeg
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        res["imageio_ffmpeg_exe"] = str(exe)
+        res["exe_exists"] = os.path.exists(exe)
+        sub = subprocess.run([exe, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        res["ffmpeg_version"] = sub.stdout.splitlines()[0] if sub.stdout else sub.stderr
+    except Exception as e:
+        res["imageio_error"] = str(e)
+    return res
+
+
 @app.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(
