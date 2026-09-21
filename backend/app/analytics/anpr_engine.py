@@ -17,15 +17,20 @@ class ANPREvent:
 
 class ANPREngine:
     def __init__(self):
-        try:
-            import easyocr
-            self.reader = easyocr.Reader(['en'], gpu=False) # Use CPU for safety in MVP unless GPU is guaranteed
-            self.enabled = True
-        except ImportError:
-            self.enabled = False
-            self.reader = None
-            
+        self._reader = None
+        self.enabled = True
         self.plate_history = {} # track_id -> dict of plate strings to counts
+
+    @property
+    def reader(self):
+        if self._reader is None and self.enabled:
+            try:
+                import easyocr
+                self._reader = easyocr.Reader(['en'], gpu=False)
+            except Exception:
+                self.enabled = False
+                self._reader = None
+        return self._reader
 
     def _normalize_plate(self, text: str) -> str:
         # Keep only alphanumeric
@@ -33,7 +38,7 @@ class ANPREngine:
         return normalized
 
     def analyze(self, camera_id: str, track_id: str, frame: Any, bbox: Any) -> ANPREvent | None:
-        if not self.enabled:
+        if not self.enabled or self.reader is None:
             return None
             
         # Mocking the pipeline for MVP to prevent hanging on full inference:
@@ -84,7 +89,7 @@ class ANPREngine:
         return None
 
     def analyze_once(self, camera_id: str, track_id: str, frame: Any, bbox: Any) -> ANPREvent | None:
-        if not self.enabled:
+        if not self.enabled or self.reader is None:
             return None
 
         x1, y1, x2, y2 = int(bbox.x1), int(bbox.y1), int(bbox.x2), int(bbox.y2)

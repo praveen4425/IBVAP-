@@ -9,8 +9,8 @@ coverage/
 
 # Python / Backend
 *.pyc
-__pycache__/
-# *.pt
+*.pt
+test_*.py
 
 # Virtual Environments
 venv/

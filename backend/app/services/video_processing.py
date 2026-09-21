@@ -14,7 +14,7 @@ import subprocess
 
 from app.core.config import BASE_DIR, EVIDENCE_DIR
 from app.services.tracker import BasicTracker
-from app.services.ultralytics_detector import UltralyticsDetector
+from app.services.ultralytics_detector import UltralyticsDetector, get_shared_detector
 from app.analytics.zone_engine import ZoneEngine, VirtualLine
 from app.analytics.face_engine import FaceEngine
 from app.services.event_engine import event_engine
@@ -265,7 +265,7 @@ def process_video(job_id: str, input_path: Path) -> None:
             raise RuntimeError("Unable to create the annotated output video")
 
         update_job(job_id, state="processing", total_frames=total_frames, stage="loading_models")
-        detector = UltralyticsDetector(str(MODEL_PATH), conf_thresh=0.45)
+        detector = get_shared_detector(str(MODEL_PATH), conf_thresh=0.45)
         tracker = BasicTracker()
         face_engine = FaceEngine()
         temporal_engine = TemporalEngine()

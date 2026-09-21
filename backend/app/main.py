@@ -1,3 +1,11 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["MALLOC_ARENA_MAX"] = "2"
+
 from pathlib import Path
 from functools import lru_cache
 
@@ -11,7 +19,7 @@ from pydantic import BaseModel
 
 from app.services.camera_manager import camera_manager
 from app.analytics.anpr_engine import ANPREngine
-from app.services.ultralytics_detector import UltralyticsDetector
+from app.services.ultralytics_detector import UltralyticsDetector, get_shared_detector
 
 from app.core.config import APP_NAME, APP_VERSION
 from app.schemas.events import HealthResponse, utc_now
@@ -224,7 +232,7 @@ def get_anpr():
 
 @lru_cache(maxsize=1)
 def _get_anpr_components():
-    return UltralyticsDetector(str(MODEL_PATH)), ANPREngine()
+    return get_shared_detector(str(MODEL_PATH)), ANPREngine()
 
 
 @app.post("/api/anpr")

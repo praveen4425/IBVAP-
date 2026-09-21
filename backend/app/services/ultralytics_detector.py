@@ -74,3 +74,17 @@ class UltralyticsDetector(Detector):
             detections.append(det)
             
         return detections
+
+
+_shared_detector: UltralyticsDetector | None = None
+_shared_detector_lock = threading.Lock()
+
+
+def get_shared_detector(model_path: str = "yolov8n.pt", conf_thresh: float = 0.45) -> UltralyticsDetector:
+    global _shared_detector
+    if _shared_detector is None:
+        with _shared_detector_lock:
+            if _shared_detector is None:
+                _shared_detector = UltralyticsDetector(model_path=model_path, conf_thresh=conf_thresh)
+    return _shared_detector
+
