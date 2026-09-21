@@ -183,6 +183,7 @@ def process_video(job_id: str, input_path: Path) -> None:
     output_path = VIDEO_DIR / f"{job_id}.mp4"
     capture = None
     writer = None
+    frame_idx = 0
     file_size = input_path.stat().st_size if input_path.exists() else 0
     print(f"[DIAGNOSTIC] Job {job_id}: Processing file '{input_path.name}', size={file_size} bytes")
 
@@ -282,15 +283,21 @@ def process_video(job_id: str, input_path: Path) -> None:
         counts: dict[str, int] = {}
         seen_tracks = set()
 
+        frame_idx = 0
         while True:
+            frame_idx += 1
+            update_job(job_id, stage=f"reading_frame_{frame_idx}")
             success, frame = capture.read()
             if not success:
+                update_job(job_id, stage=f"eof_at_frame_{frame_idx}")
                 break
 
             if needs_resize:
                 frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
 
+            update_job(job_id, stage=f"detecting_frame_{frame_idx}")
             detections = detector.detect(frame)
+            update_job(job_id, stage=f"tracking_frame_{frame_idx}")
             tracks = tracker.update(detections)
             _update_live_results(job_id, "processing", detections)
             raw_events = zone_engine.analyze("video-upload", tracks)
@@ -342,21 +349,23 @@ def process_video(job_id: str, input_path: Path) -> None:
                 if track.track_id not in seen_tracks:
                     seen_tracks.add(track.track_id)
                     counts[track.class_name] = counts.get(track.class_name, 0) + 1
+            update_job(job_id, stage=f"writing_frame_{frame_idx}")
             writer.write(_annotate_frame(frame, detections, tracks))
 
-            processed_frames = int(capture.get(cv2.CAP_PROP_POS_FRAMES))
-            progress = (processed_frames / total_frames * 100.0) if total_frames else 0.0
+            progress = (frame_idx / total_frames * 100.0) if total_frames else 0.0
             update_job(
                 job_id,
-                processed_frames=processed_frames,
+                processed_frames=frame_idx,
                 progress=min(progress, 100.0),
                 detection_counts=dict(counts),
-                stage=f"frame_{processed_frames}",
+                stage=f"frame_{frame_idx}_done",
             )
 
         if writer is not None:
             writer.release()
             writer = None
+
+        update_job(job_id, stage="post_processing")
 
         if actual_target_path != output_path and actual_target_path.is_file():
             converted = False
@@ -385,7 +394,7 @@ def process_video(job_id: str, input_path: Path) -> None:
 
         out_exists = output_path.is_file()
         out_size = output_path.stat().st_size if out_exists else 0
-        print(f"[DIAGNOSTIC] Job {job_id}: Finished processing {processed_frames} frames. Output exists: {out_exists}, size={out_size} bytes")
+        print(f"[DIAGNOSTIC] Job {job_id}: Finished processing {frame_idx} frames. Output exists: {out_exists}, size={out_size} bytes")
 
         if not out_exists or out_size == 0:
             raise RuntimeError("No annotated video was produced")
@@ -395,11 +404,14 @@ def process_video(job_id: str, input_path: Path) -> None:
             progress=100.0,
             output_url=f"/api/video/jobs/{job_id}/output",
             detection_counts=counts,
+            stage="completed",
         )
         _update_live_results(job_id, "completed", detections)
     except Exception as exc:
-        print(f"[DIAGNOSTIC] Job {job_id}: Exception occurred: {exc}")
-        update_job(job_id, state="failed", error=str(exc))
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[DIAGNOSTIC] Job {job_id}: Exception occurred: {tb}")
+        update_job(job_id, state="failed", error=f"{exc} | {tb[-300:]}", stage="failed")
         _update_live_results(job_id, "failed", [])
         output_path.unlink(missing_ok=True)
         output_path.with_suffix(".temp.avi").unlink(missing_ok=True)
