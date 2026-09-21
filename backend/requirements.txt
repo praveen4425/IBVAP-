@@ -5,8 +5,5 @@ python-dotenv
 opencv-python-headless
 python-multipart
 easyocr
-ultralytics
-imageio-ffmpeg
-torch
+onnxruntime
 numpy
-

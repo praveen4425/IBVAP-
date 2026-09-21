@@ -10,7 +10,10 @@ coverage/
 # Python / Backend
 *.pyc
 *.pt
+!*.onnx
 test_*.py
+
+
 
 # Virtual Environments
 venv/

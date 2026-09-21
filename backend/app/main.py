@@ -1,9 +1,4 @@
 import os
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["MALLOC_ARENA_MAX"] = "2"
 
 from pathlib import Path
@@ -13,24 +8,16 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from fastapi.background import BackgroundTasks
 
 from pydantic import BaseModel
 
 from app.services.camera_manager import camera_manager
 from app.analytics.anpr_engine import ANPREngine
-from app.services.ultralytics_detector import UltralyticsDetector, get_shared_detector
+from app.services.ultralytics_detector import get_shared_detector
 
 from app.core.config import APP_NAME, APP_VERSION
 from app.schemas.events import HealthResponse, utc_now
 from app.services.video_processing import (
-    MAX_UPLOAD_BYTES,
-    UPLOAD_DIR,
-    VIDEO_EXTENSIONS,
-    VIDEO_DIR,
-    create_job,
-    get_job,
-    process_video,
     get_live_results,
     MODEL_PATH,
 )
@@ -76,55 +63,6 @@ def health():
         service=APP_NAME,
         timestamp=utc_now(),
     )
-
-
-@app.post("/api/video/upload")
-async def upload_video(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    filename = Path(file.filename or "").name
-    extension = Path(filename).suffix.lower()
-    if not filename or extension not in VIDEO_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Supported video formats: MP4, AVI, MOV, MKV")
-
-    job = create_job(filename)
-    input_path = UPLOAD_DIR / f"{job.job_id}{extension}"
-    bytes_written = 0
-    try:
-        with input_path.open("wb") as destination:
-            while chunk := await file.read(1024 * 1024):
-                bytes_written += len(chunk)
-                if bytes_written > MAX_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="Video exceeds the 500 MB upload limit")
-                destination.write(chunk)
-    except HTTPException:
-        input_path.unlink(missing_ok=True)
-        raise
-    except Exception as exc:
-        input_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail=f"Upload failed: {exc}") from exc
-    finally:
-        await file.close()
-
-    background_tasks.add_task(process_video, job.job_id, input_path)
-    return job.public()
-
-
-@app.get("/api/video/jobs/{job_id}")
-def video_job_status(job_id: str):
-    job = get_job(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Video job not found")
-    return job.public()
-
-
-@app.get("/api/video/jobs/{job_id}/output")
-def video_job_output(job_id: str):
-    job = get_job(job_id)
-    if job is None or job.state != "completed":
-        raise HTTPException(status_code=404, detail="Processed video is not available")
-    output_path = VIDEO_DIR / f"{job_id}.mp4"
-    if not output_path.is_file():
-        raise HTTPException(status_code=404, detail="Processed video is not available")
-    return FileResponse(output_path, media_type="video/mp4", filename=f"{job.filename}.annotated.mp4")
 
 
 @app.get("/api/video/live")
