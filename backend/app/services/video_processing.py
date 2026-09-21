@@ -8,6 +8,9 @@ from typing import Any
 
 import cv2
 
+import shutil
+import subprocess
+
 from app.core.config import BASE_DIR, EVIDENCE_DIR
 from app.services.tracker import BasicTracker
 from app.services.ultralytics_detector import UltralyticsDetector
@@ -123,28 +126,42 @@ def _annotate_frame(frame: Any, detections: list[Any], tracks: list[Any]) -> Any
     return frame
 
 
-def _create_video_writer(output_path: Path, fps: float, width: int, height: int) -> tuple[cv2.VideoWriter, str]:
-    codecs_to_try = ["mp4v", "avc1", "H264", "XVID", "MJPG"]
+def _create_video_writer(output_path: Path, fps: float, width: int, height: int) -> tuple[cv2.VideoWriter, str, Path]:
+    # 1. Try direct MP4 codecs
+    codecs_to_try = ["mp4v", "avc1", "H264", "XVID"]
     for codec in codecs_to_try:
         try:
             fourcc = cv2.VideoWriter_fourcc(*codec)
             writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
             if writer.isOpened():
-                return writer, codec
+                return writer, codec, output_path
             writer.release()
         except Exception:
             pass
 
+    # 2. Try Windows MSMF backend if available
     if hasattr(cv2, "CAP_MSMF"):
         for codec in codecs_to_try:
             try:
                 fourcc = cv2.VideoWriter_fourcc(*codec)
                 writer = cv2.VideoWriter(str(output_path), cv2.CAP_MSMF, fourcc, fps, (width, height))
                 if writer.isOpened():
-                    return writer, f"CAP_MSMF_{codec}"
+                    return writer, f"CAP_MSMF_{codec}", output_path
                 writer.release()
             except Exception:
                 pass
+
+    # 3. Universal Fallback: Temporary .avi file with MJPG codec (100% supported on all Linux OpenCV builds)
+    temp_avi_path = output_path.with_suffix(".temp.avi")
+    for avi_codec in ["MJPG", "XVID"]:
+        try:
+            fourcc = cv2.VideoWriter_fourcc(*avi_codec)
+            writer = cv2.VideoWriter(str(temp_avi_path), fourcc, fps, (width, height))
+            if writer.isOpened():
+                return writer, f"fallback_{avi_codec}", temp_avi_path
+            writer.release()
+        except Exception:
+            pass
 
     raise RuntimeError("Unable to create the annotated output video")
 
@@ -175,9 +192,9 @@ def process_video(job_id: str, input_path: Path) -> None:
         if width <= 0 or height <= 0:
             raise RuntimeError("The video has no readable frame dimensions")
 
-        writer, codec_used = _create_video_writer(output_path, fps, width, height)
+        writer, codec_used, actual_target_path = _create_video_writer(output_path, fps, width, height)
         writer_opened = writer.isOpened() if writer else False
-        print(f"[DIAGNOSTIC] Job {job_id}: Selected output codec='{codec_used}', isOpened={writer_opened}")
+        print(f"[DIAGNOSTIC] Job {job_id}: Selected output codec='{codec_used}', target='{actual_target_path.name}', isOpened={writer_opened}")
         if not writer_opened:
             raise RuntimeError("Unable to create the annotated output video")
 
@@ -266,6 +283,31 @@ def process_video(job_id: str, input_path: Path) -> None:
                 progress=min(progress, 100.0),
                 detection_counts=dict(counts),
             )
+
+        if writer is not None:
+            writer.release()
+            writer = None
+
+        if actual_target_path != output_path and actual_target_path.is_file():
+            converted = False
+            ffmpeg_bin = shutil.which("ffmpeg")
+            if ffmpeg_bin:
+                try:
+                    cmd = [
+                        ffmpeg_bin, "-y",
+                        "-i", str(actual_target_path),
+                        "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p",
+                        str(output_path)
+                    ]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+                    if res.returncode == 0 and output_path.is_file() and output_path.stat().st_size > 0:
+                        converted = True
+                except Exception:
+                    pass
+            if not converted:
+                shutil.copy(actual_target_path, output_path)
+            actual_target_path.unlink(missing_ok=True)
 
         out_exists = output_path.is_file()
         out_size = output_path.stat().st_size if out_exists else 0
