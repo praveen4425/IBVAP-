@@ -202,7 +202,33 @@ def process_video(job_id: str, input_path: Path) -> None:
                 width -= 1
             if height % 2 != 0:
                 height -= 1
-            print(f"[DIAGNOSTIC] Job {job_id}: 4K/HD memory guard active. Resizing from {orig_width}x{orig_height} to {width}x{height}")
+            print(f"[DIAGNOSTIC] Job {job_id}: 4K/HD memory guard active. Target bounds {width}x{height}")
+            # If ffmpeg is available on the system, pre-scale on disk in a separate process
+            # to prevent OpenCV's C decoder from allocating 350MB of 4K DPB reference frames
+            ffmpeg_bin = shutil.which("ffmpeg")
+            if ffmpeg_bin:
+                downscaled_path = input_path.with_suffix(".scaled.mp4")
+                try:
+                    cmd = [
+                        ffmpeg_bin, "-y",
+                        "-i", str(input_path),
+                        "-vf", f"scale={width}:{height}",
+                        "-c:v", "libx264",
+                        "-preset", "ultrafast",
+                        "-crf", "28",
+                        "-an",
+                        str(downscaled_path),
+                    ]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+                    if res.returncode == 0 and downscaled_path.is_file() and downscaled_path.stat().st_size > 0:
+                        capture.release()
+                        input_path.unlink(missing_ok=True)
+                        input_path = downscaled_path
+                        capture = cv2.VideoCapture(str(input_path))
+                        needs_resize = False
+                        print(f"[DIAGNOSTIC] Job {job_id}: Pre-scaled on disk to {width}x{height} via FFmpeg successfully")
+                except Exception as e:
+                    print(f"[DIAGNOSTIC] Job {job_id}: FFmpeg pre-scale exception: {e}")
         else:
             width = orig_width
             height = orig_height
@@ -356,6 +382,10 @@ def process_video(job_id: str, input_path: Path) -> None:
             writer.release()
         try:
             input_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        try:
+            input_path.with_suffix(".scaled.mp4").unlink(missing_ok=True)
         except Exception:
             pass
         try:
