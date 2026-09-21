@@ -185,12 +185,29 @@ def process_video(job_id: str, input_path: Path) -> None:
 
         total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         fps = capture.get(cv2.CAP_PROP_FPS) or 25.0
-        width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
-        height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-        print(f"[DIAGNOSTIC] Job {job_id}: fps={fps}, width={width}, height={height}, total_frames={total_frames}")
-
-        if width <= 0 or height <= 0:
+        orig_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+        orig_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+        if orig_width <= 0 or orig_height <= 0:
             raise RuntimeError("The video has no readable frame dimensions")
+
+        MAX_WIDTH = 1280
+        MAX_HEIGHT = 720
+        needs_resize = orig_width > MAX_WIDTH or orig_height > MAX_HEIGHT
+
+        if needs_resize:
+            scale = min(MAX_WIDTH / orig_width, MAX_HEIGHT / orig_height)
+            width = int(round(orig_width * scale))
+            height = int(round(orig_height * scale))
+            if width % 2 != 0:
+                width -= 1
+            if height % 2 != 0:
+                height -= 1
+            print(f"[DIAGNOSTIC] Job {job_id}: 4K/HD memory guard active. Resizing from {orig_width}x{orig_height} to {width}x{height}")
+        else:
+            width = orig_width
+            height = orig_height
+
+        print(f"[DIAGNOSTIC] Job {job_id}: fps={fps}, width={width}, height={height}, total_frames={total_frames}")
 
         writer, codec_used, actual_target_path = _create_video_writer(output_path, fps, width, height)
         writer_opened = writer.isOpened() if writer else False
@@ -220,6 +237,9 @@ def process_video(job_id: str, input_path: Path) -> None:
             success, frame = capture.read()
             if not success:
                 break
+
+            if needs_resize:
+                frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
 
             detections = detector.detect(frame)
             tracks = tracker.update(detections)
@@ -328,12 +348,20 @@ def process_video(job_id: str, input_path: Path) -> None:
         update_job(job_id, state="failed", error=str(exc))
         _update_live_results(job_id, "failed", [])
         output_path.unlink(missing_ok=True)
+        output_path.with_suffix(".temp.avi").unlink(missing_ok=True)
     finally:
         if capture is not None:
             capture.release()
         if writer is not None:
             writer.release()
-        input_path.unlink(missing_ok=True)
+        try:
+            input_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        try:
+            output_path.with_suffix(".temp.avi").unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def start_processing(job_id: str, input_path: Path) -> None:
